@@ -8,65 +8,82 @@ import mimetypes
 class S3Object:
     """Class tổng hợp cả S3Bucket và S3Object."""
 
-    def upload_to_s3(self, bucket_name: str, source_path: str, s3_prefix: str = ""):
+    def upload_to_s3(self, bucket_name: str, source_path: str = "", s3_prefix: str = "", csv_file: str = None):
         """
         Tải lên một file hoặc toàn bộ thư mục lên S3.
 
         :param bucket_name: Tên bucket S3.
         :param source_path: Đường dẫn đến file hoặc folder cần upload.
         :param s3_prefix: Đường dẫn trên S3 (mặc định là root).
+        :param csv_file: Đường dẫn đến file CSV chứa danh sách file path vaf prefix can up.
         """
-        # Chuẩn hóa s3_prefix để đảm bảo luôn có "/"
-        if s3_prefix and not s3_prefix.endswith("/"):
-            s3_prefix += "/"
+        if csv_file and os.path.isfile(csv_file):
+            # 🟢 Đọc danh sách object từ file CSV
+            with open(csv_file, mode="r", encoding="utf-8") as file:
+                reader = csv.reader(file)
+                for row in reader:
+                    if len(row) < 2:
+                        print(f"[WARN] Dòng không hợp lệ (bỏ qua): {row}")
+                        continue
 
-        if os.path.isfile(source_path):
-            # Upload file đơn lẻ
-            file_name = os.path.basename(source_path)
-            s3_key = os.path.join(s3_prefix, file_name).replace("\\", "/")
-            content_type = mimetypes.guess_type(
-                source_path)[0] or "application/octet-stream"
-
-            with open(source_path, "rb") as f:
-                self.s3_resource.Bucket(bucket_name).upload_fileobj(
-                    f, s3_key, ExtraArgs={"ContentType": content_type}
-                )
-
-            print(
-                f"[INFO] Uploaded: {source_path} -> s3://{bucket_name}/{s3_key}")
-
-        elif os.path.isdir(source_path):
-            # Lấy tên folder cần tạo trên S3
-            folder_name = os.path.basename(os.path.normpath(source_path))
-            s3_folder_path = os.path.join(
-                s3_prefix, folder_name).replace("\\", "/") + "/"
-
-            # 🟢 Tạo "folder" trên S3 bằng cách đặt một object rỗng
-            self.s3_resource.Object(bucket_name, s3_folder_path).put(Body="")
-            print(
-                f"[INFO] Created folder: s3://{bucket_name}/{s3_folder_path}")
-
-            # Upload tất cả các file bên trong folder
-            for root, _, files in os.walk(source_path):
-                for file in files:
-                    local_file_path = os.path.join(root, file)
-                    relative_path = os.path.relpath(
-                        local_file_path, source_path)
-                    s3_key = os.path.join(
-                        s3_folder_path, relative_path).replace("\\", "/")
-                    content_type = mimetypes.guess_type(local_file_path)[
-                        0] or "application/octet-stream"
-
-                    with open(local_file_path, "rb") as f:
-                        self.s3_resource.Bucket(bucket_name).upload_fileobj(
-                            f, s3_key, ExtraArgs={"ContentType": content_type}
-                        )
-
-                    print(
-                        f"[INFO] Uploaded: {local_file_path} -> s3://{bucket_name}/{s3_key}")
-
+                    src_path, prefix = row[0].strip(), row[1].strip()
+                    if os.path.exists(src_path):
+                        self.upload_to_s3(bucket_name, src_path, prefix)
+                    else:
+                        print(f"[ERROR] File không tồn tại: {src_path}")
         else:
-            print(f"[ERROR] {source_path} không tồn tại hoặc không hợp lệ.")
+            # Chuẩn hóa s3_prefix để đảm bảo luôn có "/"
+            if s3_prefix and not s3_prefix.endswith("/"):
+                s3_prefix += "/"
+
+            if os.path.isfile(source_path):
+                # Upload file đơn lẻ
+                file_name = os.path.basename(source_path)
+                s3_key = os.path.join(s3_prefix, file_name).replace("\\", "/")
+                content_type = mimetypes.guess_type(
+                    source_path)[0] or "application/octet-stream"
+
+                with open(source_path, "rb") as f:
+                    self.s3_resource.Bucket(bucket_name).upload_fileobj(
+                        f, s3_key, ExtraArgs={"ContentType": content_type}
+                    )
+
+                print(
+                    f"[INFO] Uploaded: {source_path} -> s3://{bucket_name}/{s3_key}")
+
+            elif os.path.isdir(source_path):
+                # Lấy tên folder cần tạo trên S3
+                folder_name = os.path.basename(os.path.normpath(source_path))
+                s3_folder_path = os.path.join(
+                    s3_prefix, folder_name).replace("\\", "/") + "/"
+
+                # 🟢 Tạo "folder" trên S3 bằng cách đặt một object rỗng
+                self.s3_resource.Object(bucket_name, s3_folder_path).put(Body="")
+                print(
+                    f"[INFO] Created folder: s3://{bucket_name}/{s3_folder_path}")
+
+                # Upload tất cả các file bên trong folder
+                for root, _, files in os.walk(source_path):
+                    for file in files:
+                        local_file_path = os.path.join(root, file)
+                        relative_path = os.path.relpath(
+                            local_file_path, source_path)
+                        s3_key = os.path.join(
+                            s3_folder_path, relative_path).replace("\\", "/")
+                        content_type = mimetypes.guess_type(local_file_path)[
+                            0] or "application/octet-stream"
+
+                        with open(local_file_path, "rb") as f:
+                            self.s3_resource.Bucket(bucket_name).upload_fileobj(
+                                f, s3_key, ExtraArgs={"ContentType": content_type}
+                            )
+
+                        print(
+                            f"[INFO] Uploaded: {local_file_path} -> s3://{bucket_name}/{s3_key}")
+
+            else:
+                print(f"[ERROR] {source_path} không tồn tại hoặc không hợp lệ.")
+    
 
     # Done
     def list_objects_batch(self, bucket_name, prefix="", batch_size=1000, continuation_token=None):

@@ -230,6 +230,28 @@ s3.download_objects(bucket_name="my-bucket", prefix="utils")
 s3.download_objects(bucket_name="my-bucket", prefix="s3_bucket.py", local_dir="/Download")
 ```
 
+Upload object/folder
+
+```python
+# Upload a object (ex: s3_bucket.py)
+# By default it will upload at root (/)
+s3.upload_to_s3(bucket_name="my-bucket", source_path="s3_bucket.py")
+
+# Upload a folder (ex: upload folder utils/)
+s3.upload_to_s3(bucket_name="my-bucket", source_path="utils")
+
+# Upload a object to different folder (ex: upload s3_bucket.py to /utils folder)
+s3.upload_to_s3(bucket_name="my-bucket", source_path="s3_bucket.py", s3_prefix="utils")
+
+# Upload objects in csv file
+# It will upload all objects/folder that listed in csv file
+#
+# Ex: upload_objects.csv (at 1st line, it will upload s3_bucket.py to utils folder. At 2nd line, it will upload folder utils to root)
+# s3_bucket.py, utils
+# utils, 
+s3.upload_to_s3(bucket_name="my-bucket", csv_file="upload_objects.csv")
+```
+
 Delete object/folder/specific objects in csv file
 
 ```python
@@ -255,14 +277,14 @@ s3.delete_objects(bucket_name="my-bucket", csv_file="delete_objects.csv")
     - [x] List Bucket
     - [x] Create Bucket
     - [x] Delete Bucket
-  - [ ] Objects
+  - [x] Objects
     - [x] List Objects 
       - [x] List by batch (default 1000)
       - [x] Pagination 
-    - [ ] Upload Objects
+    - [x] Upload Objects
       - [x] Upload single object
       - [x] Upload folder
-      - [ ] Upload objects by csv file 
+      - [x] Upload objects by csv file 
     - [x] Delete Objects
       - [x] Delete single object
       - [x] Delete folder

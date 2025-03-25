@@ -50,6 +50,7 @@
     - [1. Import and Initialize](#1-import-and-initialize)
     - [2. Bucket Operations](#2-bucket-operations)
     - [3. Object Operations](#3-object-operations)
+- [:world\_map: Roadmap](#world_map-roadmap)
 - [:busts\_in\_silhouette: Contributors](#busts_in_silhouette-contributors)
 - [:sparkles: Credits](#sparkles-credits)
 - [:scroll: License](#scroll-license)
@@ -246,6 +247,31 @@ s3.delete_objects(bucket_name="my-bucket", prefix="utils")
 # utils
 s3.delete_objects(bucket_name="my-bucket", csv_file="delete_objects.csv")
 ```
+
+# :world_map: Roadmap
+
+- [x] Basic CRUD
+  - [x] Bucket
+    - [x] List Bucket
+    - [x] Create Bucket
+    - [x] Delete Bucket
+  - [ ] Objects
+    - [x] List Objects 
+      - [x] List by batch (default 1000)
+      - [x] Pagination 
+    - [ ] Upload Objects
+      - [x] Upload single object
+      - [x] Upload folder
+      - [ ] Upload objects by csv file 
+    - [x] Delete Objects
+      - [x] Delete single object
+      - [x] Delete folder
+      - [x] Delete objects by csv file 
+  - [ ] Print Objects, folder
+    - [x] Tree view
+    - [ ] Object, folder size
+- [ ] Sync between 2 Buckets
+
 
 # :busts_in_silhouette: Contributors
 

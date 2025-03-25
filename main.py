@@ -15,7 +15,7 @@ s3 = S3Utils(ENDPOINT_URL, S3_ACCESS_KEY_ID, S3_SECRET_KEY_ID)
 # print(s3.object.list_view('tessel', max_depth=4))
 # s3.upload_to_s3('test-s3', source_path='./utils')
 # print(s3.list_objects_batch('test-s3', prefix='utils/'))
-s3.print_objects_tree(bucket_name="test-s3")
+s3.print_objects_tree(bucket_name="tessel")
 
 # s3.delete_objects('test-s3', prefix='utils/')
 

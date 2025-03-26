@@ -1,8 +1,8 @@
-import boto3
 import csv
 import os
 from botocore.exceptions import NoCredentialsError, ClientError
 import mimetypes
+import concurrent.futures
 
 
 class S3Object:
@@ -58,7 +58,8 @@ class S3Object:
                     s3_prefix, folder_name).replace("\\", "/") + "/"
 
                 # 🟢 Tạo "folder" trên S3 bằng cách đặt một object rỗng
-                self.s3_resource.Object(bucket_name, s3_folder_path).put(Body="")
+                self.s3_resource.Object(
+                    bucket_name, s3_folder_path).put(Body="")
                 print(
                     f"[INFO] Created folder: s3://{bucket_name}/{s3_folder_path}")
 
@@ -75,17 +76,19 @@ class S3Object:
 
                         with open(local_file_path, "rb") as f:
                             self.s3_resource.Bucket(bucket_name).upload_fileobj(
-                                f, s3_key, ExtraArgs={"ContentType": content_type}
+                                f, s3_key, ExtraArgs={
+                                    "ContentType": content_type}
                             )
 
                         print(
                             f"[INFO] Uploaded: {local_file_path} -> s3://{bucket_name}/{s3_key}")
 
             else:
-                print(f"[ERROR] {source_path} không tồn tại hoặc không hợp lệ.")
-    
+                print(
+                    f"[ERROR] {source_path} không tồn tại hoặc không hợp lệ.")
 
     # Done
+
     def list_objects_batch(self, bucket_name, prefix="", batch_size=1000, continuation_token=None):
         """
         Lấy một batch object từ S3 bằng paginator.
@@ -110,36 +113,92 @@ class S3Object:
         next_token = response.get("NextContinuationToken")
         return object_keys, next_token
 
-    # Done
     def print_objects_tree(self, bucket_name, prefix="", max_depth=3, max_items_per_level=5):
         """
-        Hiển thị danh sách object dưới dạng cây thư mục sử dụng prefix.
+        Hiển thị danh sách object dưới dạng cây thư mục có kích thước căn chỉnh.
 
         :param bucket_name: Tên bucket
-        :param max_depth: Số level thư mục tối đa để hiển thị
+        :param max_depth: Số level tối đa để hiển thị
         :param max_items_per_level: Số file/thư mục tối đa trong một level
-        :param prefix: Thư mục gốc để bắt đầu quét (ví dụ: 'common/')
+        :param prefix: Thư mục gốc để bắt đầu quét
         """
-        def list_folders_and_files(bucket_name, prefix, max_items_per_level):
-            """
-            Lấy danh sách thư mục và file ngay dưới `prefix` mà không duyệt sâu.
-            Giới hạn số lượng kết quả để tránh query quá lâu nếu có quá nhiều object.
 
-            :param bucket_name: Tên bucket
-            :param prefix: Đường dẫn thư mục trên S3
-            :param max_items_per_level: Số thư mục/file tối đa cần lấy (giới hạn hiển thị)
-            :return: (Danh sách thư mục, Danh sách file)
-            """
-            folders = set()
-            files = set()
+        def format_size(size):
+            """Chuyển đổi kích thước file từ bytes sang KB, MB, GB."""
+            if size is None:
+                return ""  # Không hiển thị size nếu là "..."
+            for unit in ['B', 'KB', 'MB', 'GB', 'TB']:
+                if size < 1024:
+                    return f"{size:.2f} {unit}"
+                size /= 1024
+            return f"{size:.2f} PB"
+
+        def get_size_for_prefix(bucket_name, prefix):
+            """Lấy kích thước object trong prefix này."""
+            total_size = 0
             continuation_token = None
+            
+            while True:
+                params = {
+                    "Bucket": bucket_name,
+                    "Prefix": prefix,
+                    "MaxKeys": 10000
+                }
+                if continuation_token:
+                    params["ContinuationToken"] = continuation_token
 
+                response = self.s3_client.list_objects_v2(**params)
+
+                if "Contents" in response:
+                    total_size += sum(obj["Size"]
+                                      for obj in response["Contents"])
+
+                continuation_token = response.get("NextContinuationToken")
+                if not continuation_token:
+                    break  # Hết dữ liệu
+
+            return total_size
+
+        def get_prefixes(bucket_name, folder_prefix):
+            """Tạo danh sách prefix con (folder) để xử lý song song."""
+
+            response = self.s3_client.list_objects_v2(
+                Bucket=bucket_name, Prefix=folder_prefix, Delimiter="/"
+            )
+
+            # Lấy danh sách tất cả folder con
+            prefixes = [p["Prefix"] for p in response.get("CommonPrefixes", [])]
+
+            # Nếu không có folder con, trả về chính prefix (để tránh bị bỏ sót)
+            return prefixes if prefixes else []
+        
+        def get_folder_size(bucket_name, folder_prefix):
+            """Lấy kích thước folder bằng cách chạy đa luồng."""
+            prefix_list = get_prefixes(bucket_name, folder_prefix)
+
+            # Luôn tính cả chính folder_prefix
+            # prefix_list.append(folder_prefix)
+            print("prefix_list:", prefix_list)
+
+            # Dùng ThreadPoolExecutor để chạy song song
+            with concurrent.futures.ThreadPoolExecutor() as executor:
+                results = executor.map(
+                    lambda p: get_size_for_prefix(bucket_name, p), prefix_list)
+
+            return sum(results)  # Cộng tổng kích thước
+
+        def list_folders_and_files(bucket_name, prefix, max_items_per_level):
+            """Lấy danh sách thư mục và file ngay dưới `prefix` mà không duyệt sâu."""
+            folders = {}
+            files = {}
+
+            continuation_token = None
             while True:
                 operation_parameters = {
                     "Bucket": bucket_name,
                     "Prefix": prefix,
-                    "Delimiter": "/",  # Giúp S3 tự nhóm thư mục
-                    "MaxKeys": 1000,  # Giới hạn mỗi batch lấy tối đa 1000 object
+                    "Delimiter": "/",
+                    "MaxKeys": 1000,
                 }
                 if continuation_token:
                     operation_parameters["ContinuationToken"] = continuation_token
@@ -150,74 +209,109 @@ class S3Object:
                 if len(files) >= max_items_per_level:
                     break
 
-                # S3 tự nhóm thư mục vào "CommonPrefixes"
+                # Lấy danh sách thư mục
                 for common_prefix in response.get("CommonPrefixes", []):
-                    folders.add(common_prefix["Prefix"][len(prefix):])
+                    folder_name = common_prefix["Prefix"][len(prefix):]
+                    folders[folder_name] = 0
                     if len(folders) >= max_items_per_level:
-                        break  # Dừng sớm nếu đủ số lượng
+                        break
 
-                # Các file riêng lẻ không nằm trong thư mục
+                # Lấy danh sách file
                 for obj in response.get("Contents", []):
                     relative_key = obj["Key"][len(prefix):]
                     if relative_key and "/" not in relative_key:
-                        files.add(relative_key)
+                        files[relative_key] = obj["Size"]
                         if len(files) >= max_items_per_level:
-                            break  # Dừng sớm nếu đủ số lượng
-
-                # Nếu đã đủ số lượng hiển thị, không query thêm nữa
-                if len(folders) >= max_items_per_level and len(files) >= max_items_per_level:
-                    break
+                            break
 
                 continuation_token = response.get("NextContinuationToken")
                 if not continuation_token:
-                    break  # Nếu không còn dữ liệu, dừng lại
+                    break
 
-            # Sắp xếp danh sách và giới hạn số lượng hiển thị
-            folders = sorted(folders)[:max_items_per_level]
-            files = sorted(files)[:max_items_per_level]
+            # Tính tổng size thư mục
+            # for folder in folders.keys():
+            #     total_size = 0
+            #     continuation_token = None
+            #     while True:
+            #         folder_params = {
+            #             "Bucket": bucket_name,
+            #             "Prefix": prefix + folder,
+            #             "MaxKeys": 1000,
+            #         }
+            #         if continuation_token:
+            #             folder_params["ContinuationToken"] = continuation_token
 
-            # Nếu còn object nhưng đã giới hạn max_items_per_level, thêm "..."
+            #         folder_response = self.s3_client.list_objects_v2(
+            #             **folder_params)
+            #         total_size += sum(obj["Size"]
+            #                         for obj in folder_response.get("Contents", []))
+
+            #         continuation_token = folder_response.get(
+            #             "NextContinuationToken")
+            #         if not continuation_token:
+            #             break
+
+            #     folders[folder] = total_size
+            for folder in folders.keys():
+                folder_prefix = prefix + folder
+                folders[folder] = get_folder_size(bucket_name, folder_prefix)
+
+            # Nếu danh sách quá dài, thêm "..."
             if len(folders) == max_items_per_level:
-                folders.append("...")
+                folders["..."] = None
             if len(files) == max_items_per_level:
-                files.append("...")
+                files["..."] = None
 
             return folders, files
 
         def print_tree(bucket_name, prefix="", depth=0, indent=""):
-            """
-            Đệ quy in cây thư mục với các giới hạn.
-            """
+            """ Đệ quy in cây thư mục với kích thước căn chỉnh. """
             if depth >= max_depth:
                 return
 
             folders, files = list_folders_and_files(
                 bucket_name, prefix, max_items_per_level)
 
+
+            # Chọn độ rộng cột dựa vào depth
+            NAME_COLUMN_WIDTH = 100 if depth <= 5 else 150
+            SIZE_COLUMN_WIDTH = 12
+            TOTAL_WIDTH = NAME_COLUMN_WIDTH + SIZE_COLUMN_WIDTH + 5  # Đảm bảo không bị lệch
+
+            # Tính độ dài thực sự dành cho tên file (loại bỏ phần indent)
+            def shorten_name(name, width, indent_len):
+                adjusted_width = width - indent_len
+                return name if len(name) <= adjusted_width else name[:adjusted_width - 3] + "..."
+
             # Hiển thị thư mục
-            folders = folders[:max_items_per_level] + \
-                (["..."] if len(folders) > max_items_per_level else [])
-            for idx, folder in enumerate(folders):
+            for idx, (folder, size) in enumerate(folders.items()):
                 connector = "└─ " if idx == len(
                     folders) - 1 and not files else "├─ "
-                print(f"{indent}{connector}📂 {folder}")
+                full_name = f"{indent}{connector}📂 {folder}"
+                name = shorten_name(full_name, NAME_COLUMN_WIDTH, len(indent))
+                size_str = format_size(size)
+                print(
+                    f"{name.ljust(TOTAL_WIDTH - SIZE_COLUMN_WIDTH)}{size_str.rjust(SIZE_COLUMN_WIDTH)}")
                 if folder != "...":
                     print_tree(bucket_name, prefix + folder, depth + 1, indent +
                                ("    " if idx == len(folders) - 1 and not files else "│   "))
 
-            # Hiển thị file (chỉ in nếu có file trong thư mục)
+            # Hiển thị file
             if files:
-                files = files[:max_items_per_level] + \
-                    (["..."] if len(files) > max_items_per_level else [])
-                for idx, file in enumerate(files):
+                for idx, (file, size) in enumerate(files.items()):
                     connector = "└── " if idx == len(files) - 1 else "├── "
-                    print(f"{indent}{connector}📄 {file}")
+                    full_name = f"{indent}{connector}📄 {file}"
+                    name = shorten_name(
+                        full_name, NAME_COLUMN_WIDTH, len(indent))
+                    size_str = format_size(size)
+                    print(
+                        f"{name.ljust(TOTAL_WIDTH - SIZE_COLUMN_WIDTH)}{size_str.rjust(SIZE_COLUMN_WIDTH)}")
 
-        # Nếu prefix không rỗng, hiển thị từ thư mục con thay vì toàn bộ bucket
         print(f"📂 {bucket_name}/{prefix or ''}")
         print_tree(bucket_name, prefix)
 
     # Done
+
     def download_objects(self, bucket_name, prefix, local_dir="./"):
         """
         Tải toàn bộ 'folder' từ S3 về máy, giữ nguyên cấu trúc thư mục và đặt trong folder có tên bucket_name.

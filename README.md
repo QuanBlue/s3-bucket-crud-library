@@ -165,9 +165,7 @@ objects = s3.list_objects_batch(bucket_name="my-bucket")
 # List first 9999 objects in bucket.
 objects = s3.list_objects_batch(bucket_name="my-bucket", batch="9999")
 
-# List 1000 first object in folder (ex: foo/boo/...)
-objects = s3.list_objects_batch(bucket_name="my-bucket", prefix="foo/boo")
-# or
+# List 1000 first object in folder (ex: foo/boo/)
 objects = s3.list_objects_batch(bucket_name="my-bucket", prefix="foo/boo/")
 
 # If you wanna create pagination
@@ -224,13 +222,13 @@ s3.download_objects(bucket_name="my-bucket", prefix="s3_bucket.py")
 
 # Download a folder (download all object have prefix <prefix>)
 # It will create and download directory (ex: "utils") at locate that you run script
-s3.download_objects(bucket_name="my-bucket", prefix="utils")
+s3.download_objects(bucket_name="my-bucket", prefix="utils/")
 
 # Download a object to different download dir (ex: /Download)
 s3.download_objects(bucket_name="my-bucket", prefix="s3_bucket.py", local_dir="/Download")
 ```
 
-Upload object/folder
+Upload object/folder/specific objects in csv file
 
 ```python
 # Upload a object (ex: s3_bucket.py)
@@ -238,10 +236,10 @@ Upload object/folder
 s3.upload_to_s3(bucket_name="my-bucket", source_path="s3_bucket.py")
 
 # Upload a folder (ex: upload folder utils/)
-s3.upload_to_s3(bucket_name="my-bucket", source_path="utils")
+s3.upload_to_s3(bucket_name="my-bucket", source_path="utils/")
 
 # Upload a object to different folder (ex: upload s3_bucket.py to /utils folder)
-s3.upload_to_s3(bucket_name="my-bucket", source_path="s3_bucket.py", s3_prefix="utils")
+s3.upload_to_s3(bucket_name="my-bucket", source_path="s3_bucket.py", s3_prefix="utils/")
 
 # Upload objects in csv file
 # It will upload all objects/folder that listed in csv file
@@ -259,7 +257,7 @@ Delete object/folder/specific objects in csv file
 s3.delete_objects(bucket_name="my-bucket", prefix="s3_bucket.py")
 
 # Delete a folder (delete all object have prefix <prefix>) (ex: utils)
-s3.delete_objects(bucket_name="my-bucket", prefix="utils")
+s3.delete_objects(bucket_name="my-bucket", prefix="utils/")
 
 # Delete objects in csv file
 # It will delete all objects/folder that listed in csv file

@@ -142,13 +142,16 @@ s3 = S3Utils(ENDPOINT_URL, S3_ACCESS_KEY_ID, S3_SECRET_KEY_ID)
 ### 2. Bucket Operations
 
 ```python
+####################################################
 # List all available buckets of this s3 bucket
 buckets = s3.list_bucket()
 print(buckets)
 
+####################################################
 # Create a new bucket (ex: my-new-bucket)
 s3.create_bucket(bucket_name="my-new-bucket")
 
+####################################################
 # Delete a bucket (ex: my-new-bucket)
 s3.delete_bucket(bucket_name="my-new-bucket")
 ```
@@ -158,16 +161,20 @@ s3.delete_bucket(bucket_name="my-new-bucket")
 List objects in bucket
 
 ```python
+####################################################
 # List objects in bucket.
 # By default it get first 1000 object (batch=1000)
 objects = s3.list_objects_batch(bucket_name="my-bucket")
 
+####################################################
 # List first 9999 objects in bucket.
 objects = s3.list_objects_batch(bucket_name="my-bucket", batch="9999")
 
+####################################################
 # List 1000 first object in folder (ex: foo/boo/)
 objects = s3.list_objects_batch(bucket_name="my-bucket", prefix="foo/boo/")
 
+####################################################
 # If you wanna create pagination
 # use param: "continuation_token" (ex: list 1000 object has index 1001 to 2000)
 objects = s3.list_objects_batch(bucket_name="my-bucket", continuation_token="1001")
@@ -255,14 +262,17 @@ s3.print_objects_tree(bucket_name="my-bucket", prefix="utils/")
 Download object/folder
 
 ```python
+####################################################
 # Download a object (ex: s3_bucket.py)
 # By default it will download at locate that you run script
 s3.download_objects(bucket_name="my-bucket", prefix="s3_bucket.py")
 
+####################################################
 # Download a folder (download all object have prefix <prefix>)
 # It will create and download directory (ex: "utils") at locate that you run script
 s3.download_objects(bucket_name="my-bucket", prefix="utils/")
 
+####################################################
 # Download a object to different download dir (ex: /Download)
 s3.download_objects(bucket_name="my-bucket", prefix="s3_bucket.py", local_dir="/Download")
 ```
@@ -270,16 +280,20 @@ s3.download_objects(bucket_name="my-bucket", prefix="s3_bucket.py", local_dir="/
 Upload object/folder/specific objects in csv file
 
 ```python
+####################################################
 # Upload a object (ex: s3_bucket.py)
 # By default it will upload at root (/)
 s3.upload_to_s3(bucket_name="my-bucket", source_path="s3_bucket.py")
 
+####################################################
 # Upload a folder (ex: upload folder utils/)
 s3.upload_to_s3(bucket_name="my-bucket", source_path="utils/")
 
+####################################################
 # Upload a object to different folder (ex: upload s3_bucket.py to /utils folder)
 s3.upload_to_s3(bucket_name="my-bucket", source_path="s3_bucket.py", s3_prefix="utils/")
 
+####################################################
 # Upload objects in csv file
 # It will upload all objects/folder that listed in csv file
 #
@@ -292,12 +306,15 @@ s3.upload_to_s3(bucket_name="my-bucket", csv_file="upload_objects.csv")
 Delete object/folder/specific objects in csv file
 
 ```python
+####################################################
 # Delete a object (ex: s3_bucket.py)
 s3.delete_objects(bucket_name="my-bucket", prefix="s3_bucket.py")
 
+####################################################
 # Delete a folder (delete all object have prefix <prefix>) (ex: utils)
 s3.delete_objects(bucket_name="my-bucket", prefix="utils/")
 
+####################################################
 # Delete objects in csv file
 # It will delete all objects/folder that listed in csv file
 #

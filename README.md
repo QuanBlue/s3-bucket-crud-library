@@ -324,6 +324,29 @@ s3.delete_objects(bucket_name="my-bucket", prefix="utils/")
 s3.delete_objects(bucket_name="my-bucket", csv_file="delete_objects.csv")
 ```
 
+Sync 2 buckets
+```python
+####################################################
+# Sync buckets unidirectional (on-way)
+# (ex: sync from `my-bucket-1` to `my-bucket-2`)
+s3.sync_buckets_unidirectional(source_bucket="my-bucket-1", dest_bucket="my-bucket-2")
+
+####################################################
+# Sync buckets unidirectional (on-way) with specific prefix
+# (ex: sync from `my-bucket-1` to `my-bucket-2` with prefix `utils`)
+s3.sync_buckets_unidirectional(source_bucket="my-bucket-1", dest_bucket="my-bucket-2", prefix="utils/)
+
+####################################################
+# Sync buckets bidirectional (two-way)
+# (ex: sync between `my-bucket-1` and `my-bucket-2`)
+s3.sync_buckets_bidirectional(bucket1="my-bucket-1", bucket2="my-bucket-2")
+
+####################################################
+# Sync buckets bidirectional (two-way) with specific prefix
+# (ex: sync between `my-bucket-1` and `my-bucket-2` with prefix `utils`)
+s3.sync_buckets_bidirectional(bucket1="my-bucket-1", bucket2="my-bucket-2", prefix="utils/)
+```
+
 # :world_map: Roadmap
 
 - [x] Basic CRUD
@@ -346,7 +369,9 @@ s3.delete_objects(bucket_name="my-bucket", csv_file="delete_objects.csv")
   - [x] Print Objects, folder
     - [x] Tree view
     - [x] Object, folder size
-- [ ] Sync between 2 Buckets
+- [x] Sync between 2 Buckets
+  - [x] Sync bidirectional
+  - [x] Sync unidirectional
 
 
 # :busts_in_silhouette: Contributors

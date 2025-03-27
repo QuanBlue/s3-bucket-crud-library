@@ -176,81 +176,68 @@ objects = s3.list_objects_batch(bucket_name="my-bucket", continuation_token="100
 Print object in tree format
 
 ```python
+####################################################
 # By default it will:
 # - Show depth = 3 and 5 item in a folder
 # - Only print size of objects (optimize query time)
 s3.show_tree(bucket_name="my-bucket")
-
-# output
 #
 # 📁 my-bucket                                                                                            
 # ├── 📁 assets/                                                                                        
-# │   └── 📄 s3-bucket-logo.svg                                                                  1.10 KB
+# │   └── 📄 s3-bucket-logo.svg                                                    1.10 KB
 # ├── 📁 utils/                                                                                         
 # │   ├── 📁 __pycache__/                                                                               
 # │   │   ├── 📁 images/                                                                                
 # │   │   │   ├── 📁 temp/                                                                    
 # │   │   │   │   ├── 📁 tmp1/                                                                           
-# │   │   │   │   └── 📄 full_2000005070...a3479bb820b.jpg                                     123.95 KB
-# │   │   │   ├── 📄 554acfd1-3680-4...ff9a546efc.jpeg                                         436.87 KB
-# │   │   │   ├── 📄 delete_image.py                                                             1.44 KB
-# │   │   │   ├── 📄 full_2000005070...a3479bb820b.jpg                                         123.95 KB
-# │   │   │   └── 📄 test.py                                                                     1.39 KB
-# │   │   ├── 📄 13105_rev8.json                                                               196.98 KB
-# │   │   ├── 📄 9734_rev5.json                                                                241.52 KB
+# │   │   │   │   └── 📄 full_2000005070...a3479bb820b.jpg                       123.95 KB
+# │   │   │   ├── 📄 554acfd1-3680-4...ff9a546efc.jpeg                           436.87 KB
+# │   │   │   ├── 📄 delete_image.py                                               1.44 KB
+# │   │   │   ├── 📄 full_2000005070...a3479bb820b.jpg                           123.95 KB
 # ...
 
+####################################################
 # Show tree with folder size
 # This will query all object of bucket. Be patient, it will take amount of time
 s3.print_objects_tree(bucket_name="my-bucket", show_folder_size=True)
-
-# output
 #
-# 📁 my-bucket                                                                                   1.59 MB
-# ├── 📁 assets/                                                                                 1.10 KB
-# │   └── 📄 s3-bucket-logo.svg                                                                  1.10 KB
-# ├── 📁 utils/                                                                                  1.26 MB
-# │   ├── 📁 __pycache__/                                                                        1.24 MB
-# │   │   ├── 📁 images/                                                                       811.53 KB
-# │   │   │   ├── 📁 temp/                                                           247.89 KB
-# │   │   │   │   ├── 📁 tmp1/                                                                  123.95 KB
-# │   │   │   │   └── 📄 full_2000005070...a3479bb820b.jpg                                     123.95 KB
-# │   │   │   ├── 📄 554acfd1-3680-4...ff9a546efc.jpeg                                         436.87 KB
-# │   │   │   ├── 📄 delete_image.py                                                             1.44 KB
-# │   │   │   ├── 📄 full_2000005070...a3479bb820b.jpg                                         123.95 KB
-# │   │   │   └── 📄 test.py                                                                     1.39 KB
-# │   │   ├── 📄 13105_rev8.json                                                               196.98 KB
-# │   │   ├── 📄 9734_rev5.json                                                                241.52 KB
+# 📁 my-bucket                                                                     1.59 MB
+# ├── 📁 assets/                                                                   1.10 KB
+# │   └── 📄 s3-bucket-logo.svg                                                    1.10 KB
+# ├── 📁 utils/                                                                    1.26 MB
+# │   ├── 📁 __pycache__/                                                          1.24 MB
+# │   │   ├── 📁 images/                                                         811.53 KB
+# │   │   │   ├── 📁 temp/                                                       247.89 KB
+# │   │   │   │   ├── 📁 tmp1/                                                   123.95 KB
+# │   │   │   │   └── 📄 full_2000005070...a3479bb820b.jpg                       123.95 KB
+# │   │   │   ├── 📄 554acfd1-3680-4...ff9a546efc.jpeg                           436.87 KB
+# │   │   │   ├── 📄 delete_image.py                                               1.44 KB
+# │   │   │   ├── 📄 full_2000005070...a3479bb820b.jpg                           123.95 KB
 # ...
 
+####################################################
 # Show tree with deeper and more file (ex: max_depth=7, max_items_per_level=6)
 s3.print_objects_tree(bucket_name="my-bucket", max_depth=7, max_items_per_level=6)
-
-# output
 #
 # 📁 my-bucket                                                                                            
 # ├── 📁 assets/                                                                                        
-# │   └── 📄 s3-bucket-logo.svg                                                                  1.10 KB
+# │   └── 📄 s3-bucket-logo.svg                                                    1.10 KB
 # ├── 📁 utils/                                                                                         
 # │   ├── 📁 __pycache__/                                                                               
 # │   │   ├── 📁 images/                                                                                
 # │   │   │   ├── 📁 temp/                                                                    
 # │   │   │   │   ├── 📁 tmp1/                                                                           
 # │   │   │   │   │   └── 📁 12/                                                                     
-# │   │   │   │   │       └── 📄 full_2000005070...a3479bb820b.jpg                             123.95 KB
-# │   │   │   │   └── 📄 full_2000005070...a3479bb820b.jpg                                     123.95 KB
-# │   │   │   ├── 📄 554acfd1-3680-4...ff9a546efc.jpeg                                         436.87 KB
-# │   │   │   ├── 📄 delete_image.py                                                             1.44 KB
-# │   │   │   ├── 📄 full_2000005070...a3479bb820b.jpg                                         123.95 KB
-# │   │   │   └── 📄 test.py                                                                     1.39 KB
-# │   │   ├── 📄 13105_rev8.json                                                               196.98 KB
-# │   │   ├── 📄 9734_rev5.json                                                                241.52 KB
+# │   │   │   │   │       └── 📄 full_2000005070...a3479bb820b.jpg               123.95 KB
+# │   │   │   │   └── 📄 full_2000005070...a3479bb820b.jpg                       123.95 KB
+# │   │   │   ├── 📄 554acfd1-3680-4...ff9a546efc.jpeg                           436.87 KB
+# │   │   │   ├── 📄 delete_image.py                                               1.44 KB
+# │   │   │   ├── 📄 full_2000005070...a3479bb820b.jpg                           123.95 KB
 # ...
 
+####################################################
 # Show tree start at a folder (prefix) (ex: utils)
 s3.print_objects_tree(bucket_name="my-bucket", prefix="utils/")
-
-# output
 #
 # 📁 my-bucket/utils/                                                                                     
 # ├── 📁 __pycache__/                                                                                   
@@ -258,13 +245,10 @@ s3.print_objects_tree(bucket_name="my-bucket", prefix="utils/")
 # │   │   ├── 📁 temp/                                                                        
 # │   │   │   ├── 📁 tmp1/                                                                               
 # │   │   │   │   └── 📁 12/                                                                         
-# │   │   │   └── 📄 full_2000005070...a3479bb820b.jpg                                         123.95 KB
-# │   │   ├── 📄 554acfd1-3680-4...ff9a546efc.jpeg                                             436.87 KB
-# │   │   ├── 📄 delete_image.py                                                                 1.44 KB
-# │   │   ├── 📄 full_2000005070...a3479bb820b.jpg                                             123.95 KB
-# │   │   └── 📄 test.py                                                                         1.39 KB
-# │   ├── 📄 13105_rev8.json                                                                   196.98 KB
-# │   ├── 📄 9734_rev5.json                                                                    241.52 KB
+# │   │   │   └── 📄 full_2000005070...a3479bb820b.jpg                           123.95 KB
+# │   │   ├── 📄 554acfd1-3680-4...ff9a546efc.jpeg                               436.87 KB
+# │   │   ├── 📄 delete_image.py                                                   1.44 KB
+# │   │   ├── 📄 full_2000005070...a3479bb820b.jpg                               123.95 KB
 # ...
 ```
 

@@ -3,6 +3,9 @@ import os
 from botocore.exceptions import NoCredentialsError, ClientError
 import mimetypes
 import concurrent.futures
+from treelib import Tree
+from collections import defaultdict, deque
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 
 class S3Object:
@@ -89,29 +92,235 @@ class S3Object:
 
     # Done
 
+    # def list_objects_batch(self, bucket_name, prefix="", batch_size=1000, continuation_token=None):
+    #     """
+    #     Lấy một batch object từ S3 bằng paginator.
+
+    #     :param bucket_name: Tên bucket
+    #     :param prefix: Chỉ lấy object bắt đầu bằng prefix (thư mục)
+    #     :param batch_size: Số object tối đa trong mỗi lần query
+    #     :param continuation_token: Token để tiếp tục query (pagination)
+    #     :return: (Danh sách object keys, Token tiếp theo)
+    #     """
+    #     operation_parameters = {
+    #         "Bucket": bucket_name,
+    #         "Prefix": prefix,
+    #         "MaxKeys": batch_size,
+    #     }
+    #     if continuation_token:
+    #         operation_parameters["ContinuationToken"] = continuation_token
+
+    #     response = self.s3_client.list_objects_v2(**operation_parameters)
+    #     object_keys = [obj["Key"] for obj in response.get("Contents", [])]
+
+    #     next_token = response.get("NextContinuationToken")
+    #     return object_keys, next_token
+
     def list_objects_batch(self, bucket_name, prefix="", batch_size=1000, continuation_token=None):
         """
-        Lấy một batch object từ S3 bằng paginator.
+        Lấy danh sách object trong S3 theo batch.
 
-        :param bucket_name: Tên bucket
-        :param prefix: Chỉ lấy object bắt đầu bằng prefix (thư mục)
-        :param batch_size: Số object tối đa trong mỗi lần query
-        :param continuation_token: Token để tiếp tục query (pagination)
-        :return: (Danh sách object keys, Token tiếp theo)
+        :param bucket_name: Tên bucket S3.
+        :param prefix: Prefix để lọc object.
+        :param batch_size: Số lượng object tối đa trong mỗi lần gọi API.
+        :param continuation_token: Token để phân trang.
+        :return: Tuple (danh sách object keys, continuation_token tiếp theo, danh sách kích thước file).
         """
-        operation_parameters = {
+
+        list_params = {
             "Bucket": bucket_name,
             "Prefix": prefix,
             "MaxKeys": batch_size,
         }
         if continuation_token:
-            operation_parameters["ContinuationToken"] = continuation_token
+            list_params["ContinuationToken"] = continuation_token
 
-        response = self.s3_client.list_objects_v2(**operation_parameters)
-        object_keys = [obj["Key"] for obj in response.get("Contents", [])]
+        response = self.s3_client.list_objects_v2(**list_params)
 
-        next_token = response.get("NextContinuationToken")
-        return object_keys, next_token
+        object_keys = []
+        object_sizes = []
+
+        if "Contents" in response:
+            for obj in response["Contents"]:
+                object_keys.append(obj["Key"])
+                object_sizes.append(obj["Size"])  # Lấy kích thước file
+
+        return object_keys, response.get("NextContinuationToken"), object_sizes
+
+    
+
+    def human_readable_size(self, size, decimal_places=2):
+        """
+        Chuyển đổi kích thước từ bytes sang KB, MB, GB, TB theo cách đọc dễ hiểu.
+
+        :param size: Kích thước file tính bằng bytes.
+        :param decimal_places: Số chữ số thập phân muốn giữ.
+        :return: Chuỗi biểu diễn kích thước file ở đơn vị phù hợp.
+        """
+        if size == 0:
+            return "0 B"
+
+        units = ["B", "KB", "MB", "GB", "TB", "PB"]
+        idx = 0
+
+        while size >= 1024 and idx < len(units) - 1:
+            size /= 1024.0
+            idx += 1
+
+        return f"{size:.{decimal_places}f} {units[idx]}"
+
+
+
+    #     return tree
+    def build_tree_from_s3(self, bucket_name, prefix=""):
+        """
+        Xây dựng cây thư mục từ các object trong S3 sử dụng treelib,
+        với thông tin kích thước file & thư mục (định dạng dễ đọc).
+        Tối ưu bằng multi-threading và xử lý streaming từng batch.
+        """
+        tree = Tree()
+
+        # Root node
+        node_icon = "📂"
+        node_name = bucket_name
+        tree.create_node(
+            f"{node_icon} {node_name} (0 B)", "/", data={"size": 0, "icon": node_icon, "name": node_name})
+        folder_sizes = defaultdict(int)  # Dictionary để lưu tổng size của thư mục
+
+        continuation_token = None
+        while True:
+            # Lấy batch object mới bằng multi-threading
+            object_keys, continuation_token, object_sizes = self.list_objects_batch(
+                bucket_name, prefix, batch_size=5000, continuation_token=continuation_token
+            )
+
+            for key, size in zip(object_keys, object_sizes):
+                parts = [part for part in key.split(
+                    "/") if part]  # Loại bỏ phần tử rỗng
+                path = "/"
+
+                for idx, part in enumerate(parts):
+                    path = f"{path}/{part}" if path != "/" else part
+                    parent = "/" if idx == 0 else "/".join(parts[:idx])
+
+                    if not tree.contains(path):
+                        if idx == len(parts) - 1:  # Nếu là file
+                            node_icon = "📄"
+                            formatted_size = self.human_readable_size(size)
+                        else:  # Nếu là thư mục
+                            node_icon = "📁"
+                            formatted_size = "0 B"
+
+                        tree.create_node(
+                            f"{node_icon} {part} ({formatted_size})", path, parent=parent,
+                            data={"size": size, "icon": node_icon, "name": part}
+                        )
+
+                    # Cộng size vào thư mục cha
+                    folder_sizes[parent] += size
+
+            if not continuation_token:
+                break  # Dừng nếu không còn dữ liệu
+
+        # Cập nhật kích thước thư mục (chỉ cần duyệt một lần)
+        for node in reversed(tree.all_nodes()):
+            if tree.children(node.identifier):  # Nếu có node con (là thư mục)
+                total_size = folder_sizes.get(node.identifier, 0)
+                formatted_size = self.human_readable_size(total_size)
+
+                node.data["icon"] = "📁"
+                node.data["size"] = total_size  # Lưu size vào data
+                node.tag = f"{node.data['icon']} {node.data['name']} ({formatted_size})"
+
+        return tree
+    
+
+
+
+    def get_max_name_length(self, tree, node_id="/", depth=0, max_depth=3):
+        """ Xác định độ dài lớn nhất của tên file/thư mục để căn chỉnh cột size """
+        if depth >= max_depth:
+            return 0
+
+        node = tree.get_node(node_id)
+        max_length = len(node.data["name"])
+
+        for child in tree.children(node_id):
+            max_length = max(max_length, self.get_max_name_length(
+                tree, child.identifier, depth+1, max_depth))
+
+        return max_length
+
+
+    def show_tree(self, tree, node_id="/", depth=0, max_depth=3, max_items_per_level=5, prefix=""):
+        """
+        Hiển thị cây thư mục với giới hạn số lượng file/folder trong mỗi cấp (level),
+        đồng thời căn chỉnh cột size luôn thẳng hàng và rút gọn tên dài.
+        """
+        max_name_length = self.get_max_name_length(
+            tree, node_id, max_depth=max_depth)
+        name_column_width = min(max_name_length, 40)  # Giới hạn tối đa 40 ký tự
+        size_column_start = 90  # Vị trí cố định cho cột size
+
+        node = tree.get_node(node_id)
+        if depth == 0:
+            # In root bucket với căn chỉnh cột size
+            icon = node.data["icon"]
+            name = node.data["name"]
+            size = self.human_readable_size(node.data["size"])
+            formatted_name = f"{icon} {name}".ljust(size_column_start)
+            print(f"{formatted_name} {size.rjust(10)}")
+            prefix = ""  # Reset prefix
+
+        if depth >= max_depth:
+            return
+
+        children = tree.children(node_id)
+        folders = [c for c in children if c.data["icon"] == "📁"]
+        files = [c for c in children if c.data["icon"] == "📄"]
+
+        total_items = len(folders) + len(files)
+        show_more = total_items > max_items_per_level
+
+        if show_more:
+            # Giữ lại số lượng tối đa
+            nodes_to_show = folders[:max_items_per_level] + \
+                files[:max(0, max_items_per_level - len(folders))]
+        else:
+            nodes_to_show = folders + files
+
+        last_index = len(nodes_to_show) - 1
+
+        for i, child in enumerate(nodes_to_show):
+            icon = child.data["icon"]
+            name = child.data["name"]
+            size = self.human_readable_size(child.data["size"])
+
+            # Rút gọn tên nếu quá dài
+            if len(name) > name_column_width:
+                name = name[:15] + "..." + name[-15:]
+
+            is_last = (i == last_index and not show_more)
+            branch = "└──" if is_last else "├──"
+            new_prefix = prefix + ("    " if is_last else "│   ")
+
+            # Đảm bảo khoảng trắng giữa tên file và cột size luôn cố định
+            formatted_name = f"{prefix}{branch} {icon} {name}".ljust(
+                size_column_start)
+
+            print(f"{formatted_name} {size.rjust(10)}")
+
+            if icon == "📁" and depth < max_depth:
+                self.show_tree(tree, node_id=child.identifier, depth=depth+1,
+                            max_depth=max_depth, max_items_per_level=max_items_per_level,
+                            prefix=new_prefix)
+
+        if show_more:
+            # Hiển thị dấu "..." nếu có nhiều item bị ẩn
+            print(f"{prefix}└──  ...")
+
+    
+
 
     def print_objects_tree(self, bucket_name, prefix="", max_depth=3, max_items_per_level=5):
         """

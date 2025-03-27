@@ -41,19 +41,19 @@
 <details open>
 <summary><b>📖 Table of Contents</b></summary>
 
--  [:star: Key features](#star-key-features)
--  [:toolbox: Getting start](#toolbox-getting-start)
-   -  [:pushpin: Prerequisites](#pushpin-prerequisites)
-   -  [:key: Environment Variables](#key-environment-variables)
-   -  [:hammer_and_wrench: Installation](#hammer_and_wrench-installation)
-   -  [:open_book: Usage](#open_book-usage)
-      -  [1. Import and Initialize](#1-import-and-initialize)
-      -  [2. Bucket Operations](#2-bucket-operations)
-      -  [3. Object Operations](#3-object-operations)
--  [:world_map: Roadmap](#world_map-roadmap)
--  [:busts_in_silhouette: Contributors](#busts_in_silhouette-contributors)
--  [:sparkles: Credits](#sparkles-credits)
--  [:scroll: License](#scroll-license)
+- [:star: Key features](#star-key-features)
+- [:toolbox: Getting start](#toolbox-getting-start)
+  - [:pushpin: Prerequisites](#pushpin-prerequisites)
+  - [:key: Environment Variables](#key-environment-variables)
+  - [:hammer\_and\_wrench: Installation](#hammer_and_wrench-installation)
+  - [:open\_book: Usage](#open_book-usage)
+    - [1. Import and Initialize](#1-import-and-initialize)
+    - [2. Bucket Operations](#2-bucket-operations)
+    - [3. Object Operations](#3-object-operations)
+- [:world\_map: Roadmap](#world_map-roadmap)
+- [:busts\_in\_silhouette: Contributors](#busts_in_silhouette-contributors)
+- [:sparkles: Credits](#sparkles-credits)
+- [:scroll: License](#scroll-license)
 </details>
 
 # :star: Key features
@@ -169,22 +169,30 @@ Sync 2 buckets
 ####################################################
 # Sync buckets unidirectional (on-way)
 # (ex: sync from `my-bucket-1` to `my-bucket-2`)
-s3.sync_buckets_unidirectional(source_bucket="my-bucket-1", dest_bucket="my-bucket-2")
+s3.sync_buckets_unidirectional(
+  source_bucket="my-bucket-1", dest_bucket="my-bucket-2"
+)
 
 ####################################################
 # Sync buckets unidirectional (on-way) with specific prefix
 # (ex: sync from `my-bucket-1` to `my-bucket-2` with prefix `utils`)
-s3.sync_buckets_unidirectional(source_bucket="my-bucket-1", dest_bucket="my-bucket-2", prefix="utils/)
+s3.sync_buckets_unidirectional(
+  source_bucket="my-bucket-1", dest_bucket="my-bucket-2", prefix="utils/"
+)
 
 ####################################################
 # Sync buckets bidirectional (two-way)
 # (ex: sync between `my-bucket-1` and `my-bucket-2`)
-s3.sync_buckets_bidirectional(bucket1="my-bucket-1", bucket2="my-bucket-2")
+s3.sync_buckets_bidirectional(
+  bucket1="my-bucket-1", bucket2="my-bucket-2"
+)
 
 ####################################################
 # Sync buckets bidirectional (two-way) with specific prefix
 # (ex: sync between `my-bucket-1` and `my-bucket-2` with prefix `utils`)
-s3.sync_buckets_bidirectional(bucket1="my-bucket-1", bucket2="my-bucket-2", prefix="utils/)
+s3.sync_buckets_bidirectional(
+  bucket1="my-bucket-1", bucket2="my-bucket-2", prefix="utils/"
+)
 ```
 
 ### 3. Object Operations
@@ -328,7 +336,9 @@ s3.upload_to_s3(bucket_name="my-bucket", source_path="s3_bucket.py", s3_prefix="
 # Upload objects in csv file
 # It will upload all objects/folder that listed in csv file
 #
-# Ex: upload_objects.csv (at 1st line, it will upload s3_bucket.py to utils folder. At 2nd line, it will upload folder utils to root)
+# Ex: upload_objects.csv
+# (at 1st line, it will upload s3_bucket.py to utils folder.
+# At 2nd line, it will upload folder utils to root)
 # s3_bucket.py, utils
 # utils,
 s3.upload_to_s3(bucket_name="my-bucket", csv_file="upload_objects.csv")

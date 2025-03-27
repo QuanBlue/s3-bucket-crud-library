@@ -147,8 +147,6 @@ class S3Object:
 
         return object_keys, response.get("NextContinuationToken"), object_sizes
 
-    
-
     def human_readable_size(self, size, decimal_places=2):
         """
         Chuyển đổi kích thước từ bytes sang KB, MB, GB, TB theo cách đọc dễ hiểu.
@@ -169,73 +167,259 @@ class S3Object:
 
         return f"{size:.{decimal_places}f} {units[idx]}"
 
+    # def build_tree_from_s3(self, bucket_name, prefix=""):
+    #     """
+    #     Xây dựng cây thư mục từ các object trong S3 sử dụng treelib,
+    #     với thông tin kích thước file & thư mục (định dạng dễ đọc).
+    #     Tối ưu bằng multi-threading và xử lý streaming từng batch.
+    #     """
+    #     tree = Tree()
 
+    #     # Root node
+    #     node_icon = "📂"
+    #     node_name = bucket_name
+    #     tree.create_node(
+    #         f"{node_icon} {node_name} (0 B)", "/", data={"size": 0, "icon": node_icon, "name": node_name})
+    #     folder_sizes = defaultdict(int)  # Dictionary để lưu tổng size của thư mục
+
+    #     continuation_token = None
+    #     while True:
+    #         # Lấy batch object mới bằng multi-threading
+    #         object_keys, continuation_token, object_sizes = self.list_objects_batch(
+    #             bucket_name, prefix, batch_size=5000, continuation_token=continuation_token
+    #         )
+
+    #         for key, size in zip(object_keys, object_sizes):
+    #             parts = [part for part in key.split(
+    #                 "/") if part]  # Loại bỏ phần tử rỗng
+    #             path = "/"
+
+    #             for idx, part in enumerate(parts):
+    #                 path = f"{path}/{part}" if path != "/" else part
+    #                 parent = "/" if idx == 0 else "/".join(parts[:idx])
+
+    #                 if not tree.contains(path):
+    #                     if idx == len(parts) - 1:  # Nếu là file
+    #                         node_icon = "📄"
+    #                         formatted_size = self.human_readable_size(size)
+    #                     else:  # Nếu là thư mục
+    #                         node_icon = "📁"
+    #                         formatted_size = "0 B"
+
+    #                     tree.create_node(
+    #                         f"{node_icon} {part} ({formatted_size})", path, parent=parent,
+    #                         data={"size": size, "icon": node_icon, "name": part}
+    #                     )
+
+    #                 # Cộng size vào thư mục cha
+    #                 folder_sizes[parent] += size
+
+    #         if not continuation_token:
+    #             break  # Dừng nếu không còn dữ liệu
+
+    #     # Cập nhật kích thước thư mục (chỉ cần duyệt một lần)
+    #     for node in reversed(tree.all_nodes()):
+    #         if tree.children(node.identifier):  # Nếu có node con (là thư mục)
+    #             total_size = folder_sizes.get(node.identifier, 0)
+    #             formatted_size = self.human_readable_size(total_size)
+
+    #             node.data["icon"] = "📁"
+    #             node.data["size"] = total_size  # Lưu size vào data
+    #             node.tag = f"{node.data['icon']} {node.data['name']} ({formatted_size})"
 
     #     return tree
-    def build_tree_from_s3(self, bucket_name, prefix=""):
-        """
-        Xây dựng cây thư mục từ các object trong S3 sử dụng treelib,
-        với thông tin kích thước file & thư mục (định dạng dễ đọc).
-        Tối ưu bằng multi-threading và xử lý streaming từng batch.
-        """
-        tree = Tree()
 
-        # Root node
-        node_icon = "📂"
-        node_name = bucket_name
-        tree.create_node(
-            f"{node_icon} {node_name} (0 B)", "/", data={"size": 0, "icon": node_icon, "name": node_name})
-        folder_sizes = defaultdict(int)  # Dictionary để lưu tổng size của thư mục
+    def list_folders_and_files(self, bucket_name, prefix, max_items_per_level=5):
+        """
+        Lấy danh sách folder và file trực tiếp dưới `prefix`.
+        Ưu tiên lấy folder trước, sau đó mới lấy file nếu chưa đủ `max_items_per_level`.
+        """
+        folders = {}
+        files = {}
 
         continuation_token = None
         while True:
-            # Lấy batch object mới bằng multi-threading
-            object_keys, continuation_token, object_sizes = self.list_objects_batch(
-                bucket_name, prefix, batch_size=5000, continuation_token=continuation_token
-            )
+            operation_parameters = {
+                "Bucket": bucket_name,
+                "Prefix": prefix,
+                "Delimiter": "/",
+                "MaxKeys": 1000,
+            }
+            if continuation_token:
+                operation_parameters["ContinuationToken"] = continuation_token
 
-            for key, size in zip(object_keys, object_sizes):
-                parts = [part for part in key.split(
-                    "/") if part]  # Loại bỏ phần tử rỗng
-                path = "/"
+            response = self.s3_client.list_objects_v2(**operation_parameters)
 
-                for idx, part in enumerate(parts):
-                    path = f"{path}/{part}" if path != "/" else part
-                    parent = "/" if idx == 0 else "/".join(parts[:idx])
+            # Lấy danh sách thư mục
+            for common_prefix in response.get("CommonPrefixes", []):
+                folder_name = common_prefix["Prefix"][len(
+                    prefix):]  # Lấy tên folder
+                folders[folder_name] = 0  # Chưa tính size (có thể tính sau)
 
-                    if not tree.contains(path):
-                        if idx == len(parts) - 1:  # Nếu là file
-                            node_icon = "📄"
-                            formatted_size = self.human_readable_size(size)
-                        else:  # Nếu là thư mục
-                            node_icon = "📁"
-                            formatted_size = "0 B"
+                if max_items_per_level and len(folders) >= max_items_per_level:
+                    break
 
-                        tree.create_node(
-                            f"{node_icon} {part} ({formatted_size})", path, parent=parent,
-                            data={"size": size, "icon": node_icon, "name": part}
-                        )
+            # Lấy danh sách file (chỉ khi chưa đủ max_items_per_level)
+            for obj in response.get("Contents", []):
+                relative_key = obj["Key"][len(prefix):]
+                if relative_key and "/" not in relative_key:
+                    files[relative_key] = obj["Size"]
 
-                    # Cộng size vào thư mục cha
-                    folder_sizes[parent] += size
+                    if max_items_per_level and len(folders) + len(files) >= max_items_per_level:
+                        break
 
-            if not continuation_token:
-                break  # Dừng nếu không còn dữ liệu
+            continuation_token = response.get("NextContinuationToken")
+            if not continuation_token or (max_items_per_level and len(folders) + len(files) >= max_items_per_level):
+                break
 
-        # Cập nhật kích thước thư mục (chỉ cần duyệt một lần)
+        return folders, files
+
+    # def build_tree_from_s3(self, bucket_name, prefix="", max_depth=None, max_items_per_level=5, show_folder_size=False):
+    #     """
+    #     Xây dựng cây thư mục từ S3, tối ưu lấy dữ liệu bằng `list_folders_and_files`.
+
+    #     :param bucket_name: Tên bucket
+    #     :param prefix: Prefix ban đầu
+    #     :param max_depth: Độ sâu tối đa cần lấy
+    #     :param max_items_per_level: Số phần tử tối đa mỗi cấp
+    #     :return: Cây thư mục
+    #     """
+    #     tree = Tree()
+    #     tree.create_node(f"📂 {bucket_name} (0 B)", "/",
+    #                      data={"size": 0, "icon": "📂", "name": bucket_name})
+
+    #     folder_sizes = defaultdict(int)  # Lưu tổng size thư mục
+    #     # Hàng đợi BFS dạng (prefix, parent_node, depth)
+    #     queue = [(prefix, "/", 0)]
+
+    #     while queue:
+    #         current_prefix, parent_node, depth = queue.pop(0)
+
+    #         # Giới hạn độ sâu duyệt
+    #         if max_depth is not None and depth >= max_depth:
+    #             continue
+
+    #         # Lấy danh sách folder & file ngay dưới `current_prefix`
+    #         if show_folder_size:
+    #             folders, files = self.list_folders_and_files(
+    #                 bucket_name, current_prefix, max_items_per_level=None)
+    #         else:
+    #             folders, files = self.list_folders_and_files(
+    #                 bucket_name, current_prefix, max_items_per_level)
+
+    #         # Thêm folder vào cây
+    #         for folder, size in folders.items():
+    #             folder_path = f"{current_prefix}{folder}"  # Đường dẫn đầy đủ
+    #             node_id = folder_path.strip("/")
+
+    #             if not tree.contains(node_id):
+    #                 icon = "📁"
+    #                 formatted_size = self.human_readable_size(size)
+    #                 tree.create_node(f"{icon} {folder} ({formatted_size})", node_id, parent=parent_node,
+    #                                  data={"size": size, "icon": icon, "name": folder})
+
+    #             # Thêm folder vào hàng đợi để duyệt tiếp
+    #             queue.append((folder_path, node_id, depth + 1))
+
+    #             # Cập nhật tổng size cho thư mục cha
+    #             folder_sizes[parent_node] += size
+
+    #         # Thêm file vào cây
+    #         for file_name, size in files.items():
+    #             file_path = f"{current_prefix}{file_name}"
+    #             node_id = file_path.strip("/")
+
+    #             if not tree.contains(node_id):
+    #                 icon = "📄"
+    #                 formatted_size = self.human_readable_size(size)
+    #                 tree.create_node(f"{icon} {file_name} ({formatted_size})", node_id, parent=parent_node,
+    #                                  data={"size": size, "icon": icon, "name": file_name})
+
+    #             # Cập nhật tổng size cho thư mục cha
+    #             folder_sizes[parent_node] += size
+
+    #     # Cập nhật lại kích thước thư mục
+    #     for node in reversed(tree.all_nodes()):
+    #         if tree.children(node.identifier):  # Nếu là thư mục
+    #             total_size = folder_sizes.get(node.identifier, 0)
+    #             formatted_size = self.human_readable_size(total_size)
+
+    #             node.data["icon"] = "📁"
+    #             node.data["size"] = total_size
+    #             node.tag = f"{node.data['icon']} {node.data['name']} ({formatted_size})"
+
+    #     return tree
+    
+    def build_tree_from_s3(self, bucket_name, prefix="", max_depth=None, max_items_per_level=5, show_folder_size=False):
+        """
+        Xây dựng cây thư mục từ S3, tối ưu lấy dữ liệu bằng `list_folders_and_files`.
+
+        :param bucket_name: Tên bucket
+        :param prefix: Prefix ban đầu
+        :param max_depth: Độ sâu tối đa cần lấy
+        :param max_items_per_level: Số phần tử tối đa mỗi cấp
+        :return: Cây thư mục
+        """
+        tree = Tree()
+        tree.create_node(f"📂 {bucket_name} (0 B)", "/",
+                        data={"size": 0, "icon": "📂", "name": bucket_name})
+
+        folder_sizes = defaultdict(int)  # Lưu tổng size thư mục
+        # Hàng đợi BFS dạng (prefix, parent_node, depth)
+        queue = [(prefix, "/", 0)]
+
+        while queue:
+            current_prefix, parent_node, depth = queue.pop(0)
+
+            if max_depth is not None and depth >= max_depth:
+                continue
+
+            if show_folder_size:
+                folders, files = self.list_folders_and_files(
+                    bucket_name, current_prefix, max_items_per_level=None)
+            else:
+                folders, files = self.list_folders_and_files(
+                    bucket_name, current_prefix, max_items_per_level)
+
+            # Thêm folder vào cây
+            for folder, size in folders.items():
+                folder_path = f"{current_prefix}{folder}"
+                node_id = folder_path.strip("/")
+
+                if not tree.contains(node_id):
+                    icon = "📁"
+                    tree.create_node(f"{icon} {folder} (0 B)", node_id, parent=parent_node,
+                                    data={"size": 0, "icon": icon, "name": folder})
+
+                # Duyệt tiếp folder con
+                queue.append((folder_path, node_id, depth + 1))
+
+            # Thêm file vào cây
+            for file_name, size in files.items():
+                file_path = f"{current_prefix}{file_name}"
+                node_id = file_path.strip("/")
+
+                if not tree.contains(node_id):
+                    icon = "📄"
+                    formatted_size = self.human_readable_size(size)
+                    tree.create_node(f"{icon} {file_name} ({formatted_size})", node_id, parent=parent_node,
+                                    data={"size": size, "icon": icon, "name": file_name})
+
+                # Cập nhật size ngay vì file đã có size
+                folder_sizes[parent_node] += size
+
+        # **📌 Cập nhật lại kích thước thư mục từ dưới lên**
         for node in reversed(tree.all_nodes()):
-            if tree.children(node.identifier):  # Nếu có node con (là thư mục)
-                total_size = folder_sizes.get(node.identifier, 0)
+            if tree.children(node.identifier):  # Nếu có con (là thư mục)
+                total_size = sum(child.data["size"]
+                                for child in tree.children(node.identifier))
                 formatted_size = self.human_readable_size(total_size)
 
                 node.data["icon"] = "📁"
-                node.data["size"] = total_size  # Lưu size vào data
+                node.data["size"] = total_size  # Ghi lại size chính xác
                 node.tag = f"{node.data['icon']} {node.data['name']} ({formatted_size})"
 
         return tree
-    
-
-
 
     def get_max_name_length(self, tree, node_id="/", depth=0, max_depth=3):
         """ Xác định độ dài lớn nhất của tên file/thư mục để căn chỉnh cột size """
@@ -251,75 +435,80 @@ class S3Object:
 
         return max_length
 
+    def show_tree(self, bucket_name, node_id="/", depth=0, max_depth=5, max_items_per_level=5, prefix="", show_folder_size=False):
+        def _show_tree(tree, node_id="/", depth=0, max_depth=3, max_items_per_level=5, prefix="", show_folder_size=False):
+            """
+            Hiển thị cây thư mục với giới hạn số lượng file/folder trong mỗi cấp (level),
+            đồng thời căn chỉnh cột size luôn thẳng hàng và rút gọn tên dài.
+            """
+            max_name_length = self.get_max_name_length(
+                tree, node_id, max_depth=max_depth)
+            name_column_width = min(max_name_length, 40)  # Giới hạn tối đa 40 ký tự
+            size_column_start = 90  # Vị trí cố định cho cột size
 
-    def show_tree(self, tree, node_id="/", depth=0, max_depth=3, max_items_per_level=5, prefix=""):
-        """
-        Hiển thị cây thư mục với giới hạn số lượng file/folder trong mỗi cấp (level),
-        đồng thời căn chỉnh cột size luôn thẳng hàng và rút gọn tên dài.
-        """
-        max_name_length = self.get_max_name_length(
-            tree, node_id, max_depth=max_depth)
-        name_column_width = min(max_name_length, 40)  # Giới hạn tối đa 40 ký tự
-        size_column_start = 90  # Vị trí cố định cho cột size
+            node = tree.get_node(node_id)
+            if depth == 0:
+                # In root bucket với căn chỉnh cột size
+                icon = node.data["icon"]
+                name = f"{node.data["name"]}/{prefix}" if prefix else node.data["name"]
+                size = self.human_readable_size(
+                    node.data["size"]) if show_folder_size else ""
+                formatted_name = f"{icon} {name}".ljust(size_column_start)
+                print(f"{formatted_name} {size.rjust(10)}")
+                prefix = ""  # Reset prefix
 
-        node = tree.get_node(node_id)
-        if depth == 0:
-            # In root bucket với căn chỉnh cột size
-            icon = node.data["icon"]
-            name = node.data["name"]
-            size = self.human_readable_size(node.data["size"])
-            formatted_name = f"{icon} {name}".ljust(size_column_start)
-            print(f"{formatted_name} {size.rjust(10)}")
-            prefix = ""  # Reset prefix
+            if depth >= max_depth:
+                return
 
-        if depth >= max_depth:
-            return
+            children = tree.children(node_id)
+            folders = [c for c in children if c.data["icon"] == "📁"]
+            files = [c for c in children if c.data["icon"] == "📄"]
 
-        children = tree.children(node_id)
-        folders = [c for c in children if c.data["icon"] == "📁"]
-        files = [c for c in children if c.data["icon"] == "📄"]
+            total_items = len(folders) + len(files)
+            show_more = total_items > max_items_per_level
 
-        total_items = len(folders) + len(files)
-        show_more = total_items > max_items_per_level
+            if show_more:
+                nodes_to_show = folders[:max_items_per_level] + \
+                    files[:max(0, max_items_per_level - len(folders))]
+            else:
+                nodes_to_show = folders + files
 
-        if show_more:
-            # Giữ lại số lượng tối đa
-            nodes_to_show = folders[:max_items_per_level] + \
-                files[:max(0, max_items_per_level - len(folders))]
-        else:
-            nodes_to_show = folders + files
+            last_index = len(nodes_to_show) - 1
 
-        last_index = len(nodes_to_show) - 1
+            for i, child in enumerate(nodes_to_show):
+                icon = child.data["icon"]
+                name = child.data["name"]
+                size = self.human_readable_size(child.data["size"]) if (
+                    icon == "📄" or show_folder_size) else ""
 
-        for i, child in enumerate(nodes_to_show):
-            icon = child.data["icon"]
-            name = child.data["name"]
-            size = self.human_readable_size(child.data["size"])
+                # Rút gọn tên nếu quá dài
+                if len(name) > name_column_width:
+                    name = name[:15] + "..." + name[-15:]
 
-            # Rút gọn tên nếu quá dài
-            if len(name) > name_column_width:
-                name = name[:15] + "..." + name[-15:]
+                is_last = (i == last_index and not show_more)
+                branch = "└──" if is_last else "├──"
+                new_prefix = prefix + ("    " if is_last else "│   ")
 
-            is_last = (i == last_index and not show_more)
-            branch = "└──" if is_last else "├──"
-            new_prefix = prefix + ("    " if is_last else "│   ")
+                # Đảm bảo khoảng trắng giữa tên file và cột size luôn cố định
+                formatted_name = f"{prefix}{branch} {icon} {name}".ljust(
+                    size_column_start)
+                print(f"{formatted_name} {size.rjust(10)}")
 
-            # Đảm bảo khoảng trắng giữa tên file và cột size luôn cố định
-            formatted_name = f"{prefix}{branch} {icon} {name}".ljust(
-                size_column_start)
-
-            print(f"{formatted_name} {size.rjust(10)}")
-
-            if icon == "📁" and depth < max_depth:
-                self.show_tree(tree, node_id=child.identifier, depth=depth+1,
+                if icon == "📁" and depth < max_depth:
+                    _show_tree(tree, node_id=child.identifier, depth=depth+1,
                             max_depth=max_depth, max_items_per_level=max_items_per_level,
-                            prefix=new_prefix)
+                            prefix=new_prefix, show_folder_size=show_folder_size)
 
-        if show_more:
-            # Hiển thị dấu "..." nếu có nhiều item bị ẩn
-            print(f"{prefix}└──  ...")
+            if show_more:
+                print(f"{prefix}└──  ...")
 
+        tree = self.build_tree_from_s3(
+            bucket_name, prefix=prefix, show_folder_size=show_folder_size)
+        
+        _show_tree(tree=tree, node_id=node_id, depth=depth, max_depth=max_depth,
+                   max_items_per_level=max_items_per_level, prefix=prefix, show_folder_size=show_folder_size)
     
+
 
 
     def print_objects_tree(self, bucket_name, prefix="", max_depth=3, max_items_per_level=5):
@@ -346,7 +535,7 @@ class S3Object:
             """Lấy kích thước object trong prefix này."""
             total_size = 0
             continuation_token = None
-            
+
             while True:
                 params = {
                     "Bucket": bucket_name,
@@ -376,11 +565,12 @@ class S3Object:
             )
 
             # Lấy danh sách tất cả folder con
-            prefixes = [p["Prefix"] for p in response.get("CommonPrefixes", [])]
+            prefixes = [p["Prefix"]
+                        for p in response.get("CommonPrefixes", [])]
 
             # Nếu không có folder con, trả về chính prefix (để tránh bị bỏ sót)
             return prefixes if prefixes else []
-        
+
         def get_folder_size(bucket_name, folder_prefix):
             """Lấy kích thước folder bằng cách chạy đa luồng."""
             prefix_list = get_prefixes(bucket_name, folder_prefix)
@@ -480,7 +670,6 @@ class S3Object:
 
             folders, files = list_folders_and_files(
                 bucket_name, prefix, max_items_per_level)
-
 
             # Chọn độ rộng cột dựa vào depth
             NAME_COLUMN_WIDTH = 100 if depth <= 5 else 150

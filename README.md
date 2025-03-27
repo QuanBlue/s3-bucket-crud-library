@@ -41,19 +41,19 @@
 <details open>
 <summary><b>📖 Table of Contents</b></summary>
 
-- [:star: Key features](#star-key-features)
-- [:toolbox: Getting start](#toolbox-getting-start)
-  - [:pushpin: Prerequisites](#pushpin-prerequisites)
-  - [:key: Environment Variables](#key-environment-variables)
-  - [:hammer\_and\_wrench: Installation](#hammer_and_wrench-installation)
-  - [:open\_book: Usage](#open_book-usage)
-    - [1. Import and Initialize](#1-import-and-initialize)
-    - [2. Bucket Operations](#2-bucket-operations)
-    - [3. Object Operations](#3-object-operations)
-- [:world\_map: Roadmap](#world_map-roadmap)
-- [:busts\_in\_silhouette: Contributors](#busts_in_silhouette-contributors)
-- [:sparkles: Credits](#sparkles-credits)
-- [:scroll: License](#scroll-license)
+-  [:star: Key features](#star-key-features)
+-  [:toolbox: Getting start](#toolbox-getting-start)
+   -  [:pushpin: Prerequisites](#pushpin-prerequisites)
+   -  [:key: Environment Variables](#key-environment-variables)
+   -  [:hammer_and_wrench: Installation](#hammer_and_wrench-installation)
+   -  [:open_book: Usage](#open_book-usage)
+      -  [1. Import and Initialize](#1-import-and-initialize)
+      -  [2. Bucket Operations](#2-bucket-operations)
+      -  [3. Object Operations](#3-object-operations)
+-  [:world_map: Roadmap](#world_map-roadmap)
+-  [:busts_in_silhouette: Contributors](#busts_in_silhouette-contributors)
+-  [:sparkles: Credits](#sparkles-credits)
+-  [:scroll: License](#scroll-license)
 </details>
 
 # :star: Key features
@@ -141,19 +141,50 @@ s3 = S3Utils(ENDPOINT_URL, S3_ACCESS_KEY_ID, S3_SECRET_KEY_ID)
 
 ### 2. Bucket Operations
 
+List all available buckets
+
 ```python
-####################################################
 # List all available buckets of this s3 bucket
 buckets = s3.list_bucket()
 print(buckets)
+```
 
-####################################################
+Create a new bucket
+
+```python
 # Create a new bucket (ex: my-new-bucket)
 s3.create_bucket(bucket_name="my-new-bucket")
+```
 
-####################################################
+Delete a bucket
+
+```python
 # Delete a bucket (ex: my-new-bucket)
 s3.delete_bucket(bucket_name="my-new-bucket")
+```
+
+Sync 2 buckets
+
+```python
+####################################################
+# Sync buckets unidirectional (on-way)
+# (ex: sync from `my-bucket-1` to `my-bucket-2`)
+s3.sync_buckets_unidirectional(source_bucket="my-bucket-1", dest_bucket="my-bucket-2")
+
+####################################################
+# Sync buckets unidirectional (on-way) with specific prefix
+# (ex: sync from `my-bucket-1` to `my-bucket-2` with prefix `utils`)
+s3.sync_buckets_unidirectional(source_bucket="my-bucket-1", dest_bucket="my-bucket-2", prefix="utils/)
+
+####################################################
+# Sync buckets bidirectional (two-way)
+# (ex: sync between `my-bucket-1` and `my-bucket-2`)
+s3.sync_buckets_bidirectional(bucket1="my-bucket-1", bucket2="my-bucket-2")
+
+####################################################
+# Sync buckets bidirectional (two-way) with specific prefix
+# (ex: sync between `my-bucket-1` and `my-bucket-2` with prefix `utils`)
+s3.sync_buckets_bidirectional(bucket1="my-bucket-1", bucket2="my-bucket-2", prefix="utils/)
 ```
 
 ### 3. Object Operations
@@ -189,14 +220,14 @@ Print object in tree format
 # - Only print size of objects (optimize query time)
 s3.show_tree(bucket_name="my-bucket")
 #
-# 📁 my-bucket                                                                                            
-# ├── 📁 assets/                                                                                        
+# 📁 my-bucket
+# ├── 📁 assets/
 # │   └── 📄 s3-bucket-logo.svg                                                    1.10 KB
-# ├── 📁 utils/                                                                                         
-# │   ├── 📁 __pycache__/                                                                               
-# │   │   ├── 📁 images/                                                                                
-# │   │   │   ├── 📁 temp/                                                                    
-# │   │   │   │   ├── 📁 tmp1/                                                                           
+# ├── 📁 utils/
+# │   ├── 📁 __pycache__/
+# │   │   ├── 📁 images/
+# │   │   │   ├── 📁 temp/
+# │   │   │   │   ├── 📁 tmp1/
 # │   │   │   │   └── 📄 full_2000005070...a3479bb820b.jpg                       123.95 KB
 # │   │   │   ├── 📄 554acfd1-3680-4...ff9a546efc.jpeg                           436.87 KB
 # │   │   │   ├── 📄 delete_image.py                                               1.44 KB
@@ -226,15 +257,15 @@ s3.print_objects_tree(bucket_name="my-bucket", show_folder_size=True)
 # Show tree with deeper and more file (ex: max_depth=7, max_items_per_level=6)
 s3.print_objects_tree(bucket_name="my-bucket", max_depth=7, max_items_per_level=6)
 #
-# 📁 my-bucket                                                                                            
-# ├── 📁 assets/                                                                                        
+# 📁 my-bucket
+# ├── 📁 assets/
 # │   └── 📄 s3-bucket-logo.svg                                                    1.10 KB
-# ├── 📁 utils/                                                                                         
-# │   ├── 📁 __pycache__/                                                                               
-# │   │   ├── 📁 images/                                                                                
-# │   │   │   ├── 📁 temp/                                                                    
-# │   │   │   │   ├── 📁 tmp1/                                                                           
-# │   │   │   │   │   └── 📁 12/                                                                     
+# ├── 📁 utils/
+# │   ├── 📁 __pycache__/
+# │   │   ├── 📁 images/
+# │   │   │   ├── 📁 temp/
+# │   │   │   │   ├── 📁 tmp1/
+# │   │   │   │   │   └── 📁 12/
 # │   │   │   │   │       └── 📄 full_2000005070...a3479bb820b.jpg               123.95 KB
 # │   │   │   │   └── 📄 full_2000005070...a3479bb820b.jpg                       123.95 KB
 # │   │   │   ├── 📄 554acfd1-3680-4...ff9a546efc.jpeg                           436.87 KB
@@ -246,12 +277,12 @@ s3.print_objects_tree(bucket_name="my-bucket", max_depth=7, max_items_per_level=
 # Show tree start at a folder (prefix) (ex: utils)
 s3.print_objects_tree(bucket_name="my-bucket", prefix="utils/")
 #
-# 📁 my-bucket/utils/                                                                                     
-# ├── 📁 __pycache__/                                                                                   
-# │   ├── 📁 images/                                                                                    
-# │   │   ├── 📁 temp/                                                                        
-# │   │   │   ├── 📁 tmp1/                                                                               
-# │   │   │   │   └── 📁 12/                                                                         
+# 📁 my-bucket/utils/
+# ├── 📁 __pycache__/
+# │   ├── 📁 images/
+# │   │   ├── 📁 temp/
+# │   │   │   ├── 📁 tmp1/
+# │   │   │   │   └── 📁 12/
 # │   │   │   └── 📄 full_2000005070...a3479bb820b.jpg                           123.95 KB
 # │   │   ├── 📄 554acfd1-3680-4...ff9a546efc.jpeg                               436.87 KB
 # │   │   ├── 📄 delete_image.py                                                   1.44 KB
@@ -299,7 +330,7 @@ s3.upload_to_s3(bucket_name="my-bucket", source_path="s3_bucket.py", s3_prefix="
 #
 # Ex: upload_objects.csv (at 1st line, it will upload s3_bucket.py to utils folder. At 2nd line, it will upload folder utils to root)
 # s3_bucket.py, utils
-# utils, 
+# utils,
 s3.upload_to_s3(bucket_name="my-bucket", csv_file="upload_objects.csv")
 ```
 
@@ -324,55 +355,31 @@ s3.delete_objects(bucket_name="my-bucket", prefix="utils/")
 s3.delete_objects(bucket_name="my-bucket", csv_file="delete_objects.csv")
 ```
 
-Sync 2 buckets
-```python
-####################################################
-# Sync buckets unidirectional (on-way)
-# (ex: sync from `my-bucket-1` to `my-bucket-2`)
-s3.sync_buckets_unidirectional(source_bucket="my-bucket-1", dest_bucket="my-bucket-2")
-
-####################################################
-# Sync buckets unidirectional (on-way) with specific prefix
-# (ex: sync from `my-bucket-1` to `my-bucket-2` with prefix `utils`)
-s3.sync_buckets_unidirectional(source_bucket="my-bucket-1", dest_bucket="my-bucket-2", prefix="utils/)
-
-####################################################
-# Sync buckets bidirectional (two-way)
-# (ex: sync between `my-bucket-1` and `my-bucket-2`)
-s3.sync_buckets_bidirectional(bucket1="my-bucket-1", bucket2="my-bucket-2")
-
-####################################################
-# Sync buckets bidirectional (two-way) with specific prefix
-# (ex: sync between `my-bucket-1` and `my-bucket-2` with prefix `utils`)
-s3.sync_buckets_bidirectional(bucket1="my-bucket-1", bucket2="my-bucket-2", prefix="utils/)
-```
-
 # :world_map: Roadmap
 
-- [x] Basic CRUD
-  - [x] Bucket
-    - [x] List Bucket
-    - [x] Create Bucket
-    - [x] Delete Bucket
-  - [x] Objects
-    - [x] List Objects 
-      - [x] List by batch (default 1000)
-      - [x] Pagination 
-    - [x] Upload Objects
-      - [x] Upload single object
-      - [x] Upload folder
-      - [x] Upload objects by csv file 
-    - [x] Delete Objects
-      - [x] Delete single object
-      - [x] Delete folder
-      - [x] Delete objects by csv file 
-  - [x] Print Objects, folder
-    - [x] Tree view
-    - [x] Object, folder size
-- [x] Sync between 2 Buckets
-  - [x] Sync bidirectional
-  - [x] Sync unidirectional
-
+-  [x] Basic CRUD
+   -  [x] Bucket
+      -  [x] List Bucket
+      -  [x] Create Bucket
+      -  [x] Delete Bucket
+   -  [x] Objects
+      -  [x] List Objects
+         -  [x] List by batch (default 1000)
+         -  [x] Pagination
+      -  [x] Upload Objects
+         -  [x] Upload single object
+         -  [x] Upload folder
+         -  [x] Upload objects by csv file
+      -  [x] Delete Objects
+         -  [x] Delete single object
+         -  [x] Delete folder
+         -  [x] Delete objects by csv file
+   -  [x] Print Objects, folder
+      -  [x] Tree view
+      -  [x] Object, folder size
+-  [x] Sync between 2 Buckets
+   -  [x] Sync bidirectional
+   -  [x] Sync unidirectional
 
 # :busts_in_silhouette: Contributors
 

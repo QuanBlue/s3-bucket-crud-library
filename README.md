@@ -245,7 +245,7 @@ s3.show_tree(bucket_name="my-bucket")
 ####################################################
 # Show tree with folder size
 # This will query all object of bucket. Be patient, it will take amount of time
-s3.print_objects_tree(bucket_name="my-bucket", show_folder_size=True)
+s3.show_tree(bucket_name="my-bucket", show_folder_size=True)
 #
 # 📁 my-bucket                                                                     1.59 MB
 # ├── 📁 assets/                                                                   1.10 KB
@@ -263,7 +263,7 @@ s3.print_objects_tree(bucket_name="my-bucket", show_folder_size=True)
 
 ####################################################
 # Show tree with deeper and more file (ex: max_depth=7, max_items_per_level=6)
-s3.print_objects_tree(bucket_name="my-bucket", max_depth=7, max_items_per_level=6)
+s3.show_tree(bucket_name="my-bucket", max_depth=7, max_items_per_level=6)
 #
 # 📁 my-bucket
 # ├── 📁 assets/
@@ -283,7 +283,7 @@ s3.print_objects_tree(bucket_name="my-bucket", max_depth=7, max_items_per_level=
 
 ####################################################
 # Show tree start at a folder (prefix) (ex: utils)
-s3.print_objects_tree(bucket_name="my-bucket", prefix="utils/")
+s3.show_tree(bucket_name="my-bucket", prefix="utils/")
 #
 # 📁 my-bucket/utils/
 # ├── 📁 __pycache__/

@@ -1,9 +1,15 @@
 from botocore.exceptions import ClientError
 from . import helpers
 
-def copy_object(s3_resource, source_bucket, dest_bucket, key):
+
+def copy_object(s3_resource, source_bucket: str, dest_bucket: str, key: str) -> None:
     """
-    Copy object từ source_bucket sang dest_bucket với key cho trước.
+    Copy an object from the source bucket to the destination bucket with the given key.
+
+    :param s3_resource: Boto3 S3 resource object.
+    :param source_bucket: Name of the source S3 bucket.
+    :param dest_bucket: Name of the destination S3 bucket.
+    :param key: Object key to be copied.
     """
     copy_source = {"Bucket": source_bucket, "Key": key}
     try:
@@ -14,26 +20,31 @@ def copy_object(s3_resource, source_bucket, dest_bucket, key):
         print(f"[ERROR] {e}")
 
 
-def sync_objects(s3_client, s3_resource, source_bucket, dest_bucket, prefix=""):
-    """Đồng bộ object từ source sang destination."""
+def sync_objects(s3_client, s3_resource, source_bucket: str, dest_bucket: str, prefix: str = "") -> int:
+    """
+    Synchronize objects from the source bucket to the destination bucket.
+
+    :param s3_client: Boto3 S3 client object.
+    :param s3_resource: Boto3 S3 resource object.
+    :param source_bucket: Name of the source S3 bucket.
+    :param dest_bucket: Name of the destination S3 bucket.
+    :param prefix: Prefix to filter objects (default is an empty string).
+    """
     copied_count = 0
     source_keys, _, _ = helpers.list_objects_batch(s3_client, source_bucket, prefix)
-    dest_keys, _, _ = helpers.list_objects_batch(
-        s3_client, dest_bucket, prefix)
+    dest_keys, _, _ = helpers.list_objects_batch(s3_client, dest_bucket, prefix)
 
     new_keys = set(source_keys) - set(dest_keys)
     if not new_keys:
-        print(
-            f"✅ Không có object mới để đồng bộ từ {source_bucket} → {dest_bucket}.")
+        print(f"[INFO] No new objects to sync from {source_bucket} → {dest_bucket}.")
+
         return 0
 
     for key in new_keys:
         try:
-            copy_object(
-                s3_resource, source_bucket, dest_bucket, key)
+            copy_object(s3_resource, source_bucket, dest_bucket, key)
             copied_count += 1
-            print(f"📤 Đã sao chép: {key}")
         except ClientError as e:
-            print(f"[ERROR] Lỗi sao chép {key}: {e}")
+            print(f"[ERROR] Failed to copy {key}: {e}")
 
     return copied_count

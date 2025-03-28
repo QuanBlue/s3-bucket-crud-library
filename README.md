@@ -82,7 +82,7 @@ To run this project, you need to add the following environment variables to your
 
 -  **Configs:** Create `.env` file in `./`
 
-   -  `ENDPOINT_URL`: Url that connect to S3 bucket provider
+   -  `S3_ENDPOINT_URL`: Url that connect to S3 bucket provider, default is viettel_cloud_enpoint
    -  `S3_ACCESS_KEY_ID`: S3 bucket access key
    -  `S3_SECRET_KEY_ID`: S3 bucket secret key id
 
@@ -92,9 +92,9 @@ To run this project, you need to add the following environment variables to your
    # .env
    # with Viettel Cloud, using https://os.viettelcloud.vn/ endpoint
    # with AWS S3 bucket, using https://s3.<region>.amazonaws.com enpoint
-   ENDPOINT_URL = https://os.viettelcloud.vn/
-   S3_ACCESS_KEY_ID = xxxxxxxxxxxxxxxxxxxx
-   S3_SECRET_KEY_ID = xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+   S3_ENDPOINT_URL="https://os.viettelcloud.vn/"
+   S3_ACCESS_KEY_ID="xxxxxxxxxxxxxxxxxxxx"
+   S3_SECRET_KEY_ID="xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
    ```
 
 You can also check out the file `.env.example` to see all required environment variables.
@@ -123,18 +123,19 @@ pip install -r requirements.txt
 ```python
 import os
 from dotenv import load_dotenv
-from utils import S3Utils
+from s3_library.s3_utils import S3Utils
+
 
 # Load environment variables
 load_dotenv()
-ENDPOINT_URL = os.getenv("ENDPOINT_URL")
+S3_ENDPOINT_URL = os.getenv("S3_ENDPOINT_URL")
 S3_ACCESS_KEY_ID = os.getenv("S3_ACCESS_KEY_ID")
 S3_SECRET_KEY_ID = os.getenv("S3_SECRET_KEY_ID")
 
 os.environ["AWS_REQUEST_CHECKSUM_CALCULATION"] = "when_required"
 os.environ["AWS_RESPONSE_CHECKSUM_VALIDATION"] = "when_required"
 
-s3 = S3Utils(ENDPOINT_URL, S3_ACCESS_KEY_ID, S3_SECRET_KEY_ID)
+s3 = S3Utils(S3_ACCESS_KEY_ID, S3_SECRET_KEY_ID, S3_ENDPOINT_URL)
 
 # [... Your code here ...]
 ```

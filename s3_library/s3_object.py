@@ -85,7 +85,7 @@ class S3Object:
                                    max_items_per_level=max_items_per_level, prefix=prefix, show_folder_size=show_folder_size)
 
 
-    def download_objects(self, bucket_name: str, prefix: str, local_dir: str = "./") -> None:
+    def download_objects(self, bucket_name: str, prefix: str = "", local_dir: str = "./") -> None:
         """
         Download all objects matching a prefix from an S3 bucket, maintaining directory structure.
 

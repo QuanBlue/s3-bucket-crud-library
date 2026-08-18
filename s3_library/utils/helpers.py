@@ -53,7 +53,7 @@ def delete_objects_batch(s3_resource, bucket_name: str, objects_to_delete: list)
         deleted = response.get("Deleted", [])
 
         for obj in deleted:
-            print(f"[INFO] Deleted: {obj['Key']}")
+            print(f"[INFO] Deleted: {obj.get('Key', obj)}")
 
         total_deleted += len(deleted)
 
@@ -175,6 +175,7 @@ def read_csv(file_path: str) -> list:
         new_header = ["path", "prefix"] + \
             [f"col_{i+3}" for i in range(max_columns - 2)]
 
+        next(reader, None) # Skip the header row
         
         for row in reader:
             # skip empty line

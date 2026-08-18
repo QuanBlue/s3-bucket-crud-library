@@ -50,6 +50,7 @@
     - [1. Import and Initialize](#1-import-and-initialize)
     - [2. Bucket Operations](#2-bucket-operations)
     - [3. Object Operations](#3-object-operations)
+  - [:test\_tube: Running Tests](#test_tube-running-tests)
 - [:world\_map: Roadmap](#world_map-roadmap)
 - [:busts\_in\_silhouette: Contributors](#busts_in_silhouette-contributors)
 - [:sparkles: Credits](#sparkles-credits)
@@ -75,6 +76,7 @@ A Python library that simplifies interactions with S3-compatible object storage 
 -  Python Package
    -  boto3 `>=1.36.0`
    -  dotenv `>=0.9.9`
+-  (Dev/Test only) Docker + Docker Compose, and `pytest` from `requirements-dev.txt` - only needed to run the test suite, not to use the library itself. See [Running Tests](#test_tube-running-tests).
 
 ## :key: Environment Variables
 
@@ -166,16 +168,18 @@ s3.delete_bucket(bucket_name="my-new-bucket")
 
 Sync 2 buckets
 
+> **Note**: Both buckets must be accessible via the same `S3Utils` instance (same endpoint + credentials). To sync buckets across two different `S3Utils` instances (e.g. two different providers), see [Sync buckets across two different S3-compatible providers](#sync-buckets-across-two-different-s3-compatible-providers) below.
+
 ```python
 ####################################################
-# Sync buckets unidirectional (on-way)
+# Sync buckets unidirectional (one-way)
 # (ex: sync from `my-bucket-1` to `my-bucket-2`)
 s3.sync_buckets_unidirectional(
   source_bucket="my-bucket-1", dest_bucket="my-bucket-2"
 )
 
 ####################################################
-# Sync buckets unidirectional (on-way) with specific prefix
+# Sync buckets unidirectional (one-way) with specific prefix
 # (ex: sync from `my-bucket-1` to `my-bucket-2` with prefix `utils`)
 s3.sync_buckets_unidirectional(
   source_bucket="my-bucket-1", dest_bucket="my-bucket-2", prefix="utils/"
@@ -195,6 +199,37 @@ s3.sync_buckets_bidirectional(
   bucket1="my-bucket-1", bucket2="my-bucket-2", prefix="utils/"
 )
 ```
+
+#### Sync buckets across two different S3-compatible providers
+
+If your source and destination buckets live on two different providers/accounts (e.g. a bucket on Viettel Cloud and a bucket on MinIO), initialize two `S3Utils` instances and pass the other one in via `dest_s3` / `other_s3`. Objects are streamed directly from source to destination (no server-side `CopyObject`, no local disk, no full in-memory buffering) since the two services cannot reach into each other's storage directly.
+
+```python
+# Two independent providers (different endpoint + credentials)
+s3_source = S3Utils(SRC_ACCESS_KEY, SRC_SECRET_KEY, SRC_ENDPOINT_URL)
+s3_dest = S3Utils(DST_ACCESS_KEY, DST_SECRET_KEY, DST_ENDPOINT_URL)
+
+####################################################
+# Sync unidirectional across instances
+s3_source.sync_buckets_unidirectional(
+  source_bucket="my-bucket-1", dest_bucket="my-bucket-2", dest_s3=s3_dest
+)
+
+####################################################
+# Sync unidirectional across instances with specific prefix
+s3_source.sync_buckets_unidirectional(
+  source_bucket="my-bucket-1", dest_bucket="my-bucket-2", prefix="utils/", dest_s3=s3_dest
+)
+
+####################################################
+# Sync bidirectional across instances
+# (bucket1 lives on s3_source, bucket2 lives on s3_dest)
+s3_source.sync_buckets_bidirectional(
+  bucket1="my-bucket-1", bucket2="my-bucket-2", other_s3=s3_dest
+)
+```
+
+> **Note**: Cross-instance sync preserves `ContentType` and custom `Metadata` only; other object metadata (e.g. `CacheControl`, `ContentEncoding`) is not currently copied. Like same-instance sync, it only compares object **keys** - it will not re-copy a key that already exists in the destination even if its content differs, and it never deletes objects.
 
 ### 3. Object Operations
 
@@ -366,6 +401,22 @@ s3.delete_objects(bucket_name="my-bucket", prefix="utils/")
 s3.delete_objects(bucket_name="my-bucket", csv_file="delete_objects.csv")
 ```
 
+## :test_tube: Running Tests
+
+The test suite exercises the library against two real local MinIO containers (via `docker-compose.yml` at the repo root) - standing in for two independent S3-compatible providers to validate cross-instance sync, same-instance sync, and pagination.
+
+```sh
+docker compose up -d
+docker compose ps        # wait until both minio1/minio2 show "healthy"
+
+pip install -r requirements-dev.txt
+pytest -v
+
+docker compose down
+```
+
+See [tests/README.md](./tests/README.md) for details (port/credential overrides, etc.).
+
 # :world_map: Roadmap
 
 -  [x] Basic CRUD
@@ -391,6 +442,8 @@ s3.delete_objects(bucket_name="my-bucket", csv_file="delete_objects.csv")
 -  [x] Sync between 2 Buckets
    -  [x] Sync bidirectional
    -  [x] Sync unidirectional
+   -  [x] Sync across two different S3-compatible provider instances (stream copy)
+   -  [x] Full pagination when syncing (>1000 objects)
 
 # :busts_in_silhouette: Contributors
 

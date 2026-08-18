@@ -1,0 +1,30 @@
+services:
+  minio1:
+    image: minio/minio:latest
+    command: server /data --console-address ":19091"
+    ports:
+      - "19000:9000"   # S3 API
+      - "19091:19091"  # Console (optional, useful for manual poking)
+    environment:
+      MINIO_ROOT_USER: minioadmin1
+      MINIO_ROOT_PASSWORD: minioadmin1pass
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 2s
+      timeout: 2s
+      retries: 20
+
+  minio2:
+    image: minio/minio:latest
+    command: server /data --console-address ":19092"
+    ports:
+      - "19010:9000"   # S3 API (different host port than minio1)
+      - "19092:19092"  # Console (optional, useful for manual poking)
+    environment:
+      MINIO_ROOT_USER: minioadmin2
+      MINIO_ROOT_PASSWORD: minioadmin2pass
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 2s
+      timeout: 2s
+      retries: 20
